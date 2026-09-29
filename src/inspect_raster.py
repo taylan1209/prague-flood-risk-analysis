@@ -1,7 +1,15 @@
+import sys
 import rasterio
 import numpy as np
 
-raster_path = "data/raw/Europe_RP100_filled_depth.tif"
+
+if len(sys.argv) < 2:
+    print("Usage: python src/inspect_raster.py <raster_path>")
+    sys.exit(1)
+
+
+raster_path = sys.argv[1]
+
 
 with rasterio.open(raster_path) as src:
 
@@ -21,26 +29,18 @@ with rasterio.open(raster_path) as src:
     total_pixels = src.width * src.height
 
     valid_pixel_count = 0
-
     min_value = np.inf
     max_value = -np.inf
 
-    print()
-    print("Scanning raster blocks...")
-
     for _, window in src.block_windows(1):
 
-        # Read only one small block at a time
         block = src.read(
             1,
             window=window,
             masked=True
         )
 
-        # Remove NoData values
         values = block.compressed()
-
-        # Remove NaN and infinite values
         values = values[np.isfinite(values)]
 
         if values.size == 0:
@@ -48,14 +48,15 @@ with rasterio.open(raster_path) as src:
 
         valid_pixel_count += values.size
 
-        block_min = values.min()
-        block_max = values.max()
+        min_value = min(
+            min_value,
+            values.min()
+        )
 
-        if block_min < min_value:
-            min_value = block_min
-
-        if block_max > max_value:
-            max_value = block_max
+        max_value = max(
+            max_value,
+            values.max()
+        )
 
     valid_percent = (
         valid_pixel_count / total_pixels
@@ -68,18 +69,6 @@ with rasterio.open(raster_path) as src:
 
     print(f"Minimum flood depth: {min_value:.3f} m")
     print(f"Maximum flood depth: {max_value:.3f} m")
-
-    print(
-        f"Valid pixel count: "
-        f"{valid_pixel_count:,}"
-    )
-
-    print(
-        f"Total pixel count: "
-        f"{total_pixels:,}"
-    )
-
-    print(
-        f"Valid pixel percent: "
-        f"{valid_percent:.3f} %"
-    )
+    print(f"Valid pixel count: {valid_pixel_count:,}")
+    print(f"Total pixel count: {total_pixels:,}")
+    print(f"Valid pixel percent: {valid_percent:.3f} %")
